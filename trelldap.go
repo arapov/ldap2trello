@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+
+	"github.com/arapov/trelldap/env"
 )
 
 const (
@@ -43,7 +45,7 @@ func (m *Members) Write() error {
 }
 
 func main() {
-	c, err := loadConfig(configfile)
+	c, err := env.LoadConfig(configfile)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -57,11 +59,11 @@ func main() {
 	}
 
 	var ldapMembers map[string]string
-	ldapc, err := c.Dial()
+	ldapc, err := c.LDAP.Dial()
 	if err != nil {
 		log.Fatalln(err)
 	}
-	ldapMembers = ldapc.Query(c)
+	ldapMembers = ldapc.Query()
 	ldapc.Close()
 
 	// Add newly discovered in LDAP People to 'members'

@@ -52,21 +52,19 @@ func main() {
 
 	// members - TODO: document the importance
 	var members Members
+	var ldapMembers map[string]string
+
 	if err := members.Read(); err != nil {
 		log.Println("no", datafile, "file was found.")
 
 		members.Map = make(map[string]*Meta)
 	}
 
-	var ldapMembers map[string]string
-	ldapc, err := c.LDAP.Dial()
-	if err != nil {
-		log.Fatalln(err)
-	}
-	ldapMembers = ldapc.Query()
-	ldapc.Close()
+	trello := c.Trello.Dial()
+	ldap := c.LDAP.Dial()
 
 	// Add newly discovered in LDAP People to 'members'
+	ldapMembers = ldap.Query()
 	for uid, fullname := range ldapMembers {
 		if _, ok := members.Map[uid]; !ok {
 			members.Map[uid] = &Meta{FullName: fullname}
@@ -79,7 +77,7 @@ func main() {
 
 	// TODO: do the stuff!
 
-	log.Println(c.Trello.Test("aarapov"))
+	log.Println(trello.Test("aarapov"))
 
 	if err := members.Write(); err != nil {
 		log.Fatalln(err)

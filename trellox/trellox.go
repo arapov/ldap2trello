@@ -20,6 +20,10 @@ type Member struct {
 	Username string `json:"username"`
 }
 
+func (c *Info) Dial() *Info {
+	return c
+}
+
 func (c *Info) Test(uid string) []Member {
 	var trelloMember []Member
 

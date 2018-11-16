@@ -29,10 +29,10 @@ type Conn struct {
 
 // Dial connects to the given address on the given network
 // and then returns a new Conn for the connection.
-func (c *Info) Dial() (*Conn, error) {
+func (c *Info) Dial() *Conn {
 	pConn, err := ldap.Dial("tcp", fmt.Sprintf("%s:%s", c.Host, c.Port))
 	if err != nil {
-		return nil, err
+		log.Fatalln(err)
 	}
 
 	if c.Secure {
@@ -49,7 +49,7 @@ func (c *Info) Dial() (*Conn, error) {
 		Conn:   pConn,
 		baseDN: c.BaseDN,
 		filter: c.Filter,
-	}, err
+	}
 }
 
 // Query TBD

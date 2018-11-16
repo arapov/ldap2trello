@@ -1,8 +1,15 @@
 {
-    "trelloKey": "vdp7d4nvlndkmugge3fos7k8kxjthre6",
-    "trelloToken": "keyy37sxwp8tullqjboa22wnkh5npvj96vbzb2w0am9jhdurxkcvv4fnrqibhigv",
-    "LDAPBindDN": "uid=johndoe,ou=users,dc=acme,dc=com",
-    "LDAPPassword": "env:LDAP_PASSWORD",
-    "LDAPBaseDN": "ou=users,dc=acme,dc=com",
-    "LDAPFilter": "(&(objectClass=person)(c=US))"
-}
+    "trello": {
+      "key": "vdp7d4nvlndkmugge3fos7k8kxjthre6",
+      "token": "keyy37sxwp8tullqjboa22wnkh5npvj96vbzb2w0am9jhdurxkcvv4fnrqibhigv"
+    },
+    "ldap": {
+      "hostname": "ldap.acme.com",
+      "port": "389",
+      "secure": true,
+      "bindDN": "uid=johndoe,ou=users,dc=acme,dc=com",
+      "password": "env:LDAP_PASSWORD",
+      "filter": "(&(objectClass=person)(c=US))",
+      "baseDN": "ou=users,dc=acme,dc=com"
+    }
+  }

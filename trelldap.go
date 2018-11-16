@@ -41,7 +41,7 @@ func (m *Members) Write() error {
 }
 
 func main() {
-	_, err := loadConfig(configfile)
+	c, err := loadConfig(configfile)
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -50,6 +50,15 @@ func main() {
 	if err := members.Read(); err != nil {
 		log.Println("no", datafile, "file was found.")
 	}
+
+	ldapc, err := c.Dial()
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	ldapc.Query()
+
+	ldapc.Close()
 
 	// TODO: do the stuff!
 

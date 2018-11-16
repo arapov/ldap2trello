@@ -11,10 +11,13 @@ import (
 // Config contains the configuration information required for application
 // to work.
 type Config struct {
-	TrelloKey    string `json:"trelloKey"`
-	TrelloToken  string `json:"trelloToken"`
+	TrelloKey   string `json:"trelloKey"`
+	TrelloToken string `json:"trelloToken"`
+
 	LDAPBindDN   string `json:"ldapBindDN"`
 	LDAPPassword string `json:"ldapPassword"`
+	LDAPFilter   string `json:"ldapFilter"`
+	LDAPBaseDN   string `json:"ldapBaseDN"`
 }
 
 // ParseJSON unmarshals bytes to structs.

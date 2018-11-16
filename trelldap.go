@@ -51,13 +51,12 @@ func main() {
 		log.Println("no", datafile, "file was found.")
 	}
 
+	var ldapMembers map[string]string
 	ldapc, err := c.Dial()
 	if err != nil {
 		log.Fatalln(err)
 	}
-
-	ldapc.Query()
-
+	ldapMembers = ldapc.Query(c)
 	ldapc.Close()
 
 	// TODO: do the stuff!

@@ -17,11 +17,31 @@ type Conn struct {
 }
 
 // Query TBD
-func (ldapc *Conn) Query() {
+func (ldapc *Conn) Query(c *Config) map[string]string {
 
-	log.Println("Querying...")
+	searchRequest := ldap.NewSearchRequest(
+		c.LDAP.BaseDN,
+		ldap.ScopeSingleLevel, ldap.NeverDerefAliases, 0, 0, false,
+		c.LDAP.Filter,
+		[]string{"uid", "cn"},
+		nil,
+	)
+	ldapRes, err := ldapc.Search(searchRequest)
+	if err != nil {
+		log.Fatalln(err)
+	}
 
-	return
+	result := make(map[string]string)
+	for _, entry := range ldapRes.Entries {
+		uid := entry.GetAttributeValue("uid")
+		fullname := entry.GetAttributeValue("cn")
+
+		result[uid] = fullname
+	}
+
+	// TODO: LDAP folks may have mail aliases they use for Trello
+
+	return result
 }
 
 // Dial connects to the given address on the given network

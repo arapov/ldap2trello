@@ -1,0 +1,6 @@
+# configs
+config.json
+.env.variables
+
+# executable
+trelldap

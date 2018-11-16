@@ -1,3 +1,6 @@
+# application data
+members.json
+
 # configs
 config.json
 .env.variables

@@ -19,6 +19,8 @@ type Meta struct {
 	TrelloID       string `json:"trelloid"`
 	TrelloUserName string `json:"trellouser"`
 	TrelloMail     string `json:"trellomail"`
+
+	seenInLDAP bool
 }
 
 // Members is ssia, map of Meta data
@@ -46,9 +48,12 @@ func main() {
 		log.Fatalln(err)
 	}
 
+	// members - TODO: document the importance
 	var members Members
 	if err := members.Read(); err != nil {
 		log.Println("no", datafile, "file was found.")
+
+		members.Map = make(map[string]*Meta)
 	}
 
 	var ldapMembers map[string]string
@@ -58,6 +63,17 @@ func main() {
 	}
 	ldapMembers = ldapc.Query(c)
 	ldapc.Close()
+
+	// Add newly discovered in LDAP People to 'members'
+	for uid, fullname := range ldapMembers {
+		if _, ok := members.Map[uid]; !ok {
+			members.Map[uid] = &Meta{FullName: fullname}
+		}
+
+		// Mark everyone who is in LDAP, those who end up with
+		// false are the material to be removed from Trello.
+		members.Map[uid].seenInLDAP = true
+	}
 
 	// TODO: do the stuff!
 

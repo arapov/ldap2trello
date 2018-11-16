@@ -79,6 +79,8 @@ func main() {
 
 	// TODO: do the stuff!
 
+	log.Println(c.Trello.Test("aarapov"))
+
 	if err := members.Write(); err != nil {
 		log.Fatalln(err)
 	}

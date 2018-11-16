@@ -16,7 +16,7 @@ const (
 // Meta defines the data required to do the synchronization between
 // LDAP and Trello Organization
 type Meta struct {
-	FullName       string `json:"fullname"`
+	Fullname       string `json:"fullname"`
 	TrelloActive   bool   `json:"trello"`
 	TrelloID       string `json:"trelloid"`
 	TrelloUserName string `json:"trellouser"`
@@ -60,6 +60,7 @@ func main() {
 		members.Map = make(map[string]*Meta)
 	}
 
+	// trello && ldap connections to work with
 	trello := c.Trello.Dial()
 	ldap := c.LDAP.Dial()
 
@@ -67,17 +68,24 @@ func main() {
 	ldapMembers = ldap.Query()
 	for uid, fullname := range ldapMembers {
 		if _, ok := members.Map[uid]; !ok {
-			members.Map[uid] = &Meta{FullName: fullname}
+			members.Map[uid] = &Meta{
+				Fullname:     fullname,
+				TrelloActive: true,
+			}
 		}
 
 		// Mark everyone who is in LDAP, those who end up with
 		// false are the material to be removed from Trello.
 		members.Map[uid].seenInLDAP = true
+
+		if members.Map[uid].TrelloActive && members.Map[uid].TrelloID == "" {
+
+		}
 	}
 
 	// TODO: do the stuff!
 
-	log.Println(trello.Test("aarapov"))
+	log.Println(trello.Search("aarapov@redhat.com"))
 
 	if err := members.Write(); err != nil {
 		log.Fatalln(err)

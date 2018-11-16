@@ -15,7 +15,7 @@ type Info struct {
 
 type Member struct {
 	Active   bool   `json:"active"`
-	FullName string `json:"fullName"`
+	Fullname string `json:"fullName"`
 	ID       string `json:"id"`
 	Username string `json:"username"`
 }
@@ -24,20 +24,22 @@ func (c *Info) Dial() *Info {
 	return c
 }
 
-func (c *Info) Test(uid string) []Member {
+func (c *Info) Search(email string) ([]Member, int) {
 	var trelloMember []Member
 
-	httpRequest := fmt.Sprintf("https://api.trello.com/1/search/members?query=%s@redhat.com&key=%s&token=%s", uid, c.Key, c.Token)
+	httpRequest := fmt.Sprintf("https://api.trello.com/1/search/members?query=%s&key=%s&token=%s", email, c.Key, c.Token)
 	httpRes, err := http.Get(httpRequest)
 	if err != nil {
-		// TODO: save the state
-		log.Fatalln(err)
+		log.Println(err)
+		return nil, httpRes.StatusCode
 	}
 
-	// 429
+	if httpRes.StatusCode == 429 {
+		// TODO: Handle 429 is for Trello API limit exceed
+	}
 
 	data, _ := ioutil.ReadAll(httpRes.Body)
 	json.Unmarshal(data, &trelloMember)
 
-	return trelloMember
+	return trelloMember, httpRes.StatusCode
 }

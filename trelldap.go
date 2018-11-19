@@ -72,6 +72,10 @@ func main() {
 		uid := ldapMember.UID
 
 		if _, ok := members.Meta[uid]; !ok {
+			// TODO: What if we don't want to look for aliases
+			// cmd-line parameter
+			ldap.GetAliases(ldapMember)
+
 			members.Meta[uid] = &Meta{
 				Fullname:     ldapMember.Fullname,
 				Mails:        ldapMember.Mails,
@@ -82,10 +86,6 @@ func main() {
 		// Mark everyone who is in LDAP, those who end up with
 		// false are the material to be removed from Trello.
 		members.Meta[uid].seenInLDAP = true
-
-		// TODO: Don't look for aliases of known uids
-		ldap.GetAliases(ldapMember)
-		members.Meta[uid].Mails = ldapMember.Mails
 
 	}
 

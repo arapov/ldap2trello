@@ -25,7 +25,7 @@ func (c *Info) Dial() *Info {
 }
 
 func (c *Info) Search(email string) ([]Member, int) {
-	var trelloMember []Member
+	var trelloMembers []Member
 
 	httpRequest := fmt.Sprintf("https://api.trello.com/1/search/members?query=%s&key=%s&token=%s", email, c.Key, c.Token)
 	httpRes, err := http.Get(httpRequest)
@@ -39,7 +39,7 @@ func (c *Info) Search(email string) ([]Member, int) {
 	}
 
 	data, _ := ioutil.ReadAll(httpRes.Body)
-	json.Unmarshal(data, &trelloMember)
+	json.Unmarshal(data, &trelloMembers)
 
-	return trelloMember, httpRes.StatusCode
+	return trelloMembers, httpRes.StatusCode
 }

@@ -27,6 +27,12 @@ type Conn struct {
 	filter string
 }
 
+type Member struct {
+	UID      string
+	Fullname string
+	Mails    []string
+}
+
 // Dial connects to the given address on the given network
 // and then returns a new Conn for the connection.
 func (c *Info) Dial() *Conn {
@@ -52,14 +58,42 @@ func (c *Info) Dial() *Conn {
 	}
 }
 
+// TODO: Generalize all hardcoded strings
+
+func (c *Conn) GetAliases(ldapMember *Member) {
+	filter := fmt.Sprintf("(sendmailMTAAliasValue=%s)", ldapMember.UID)
+
+	searchRequest := ldap.NewSearchRequest(
+		"ou=mx,dc=redhat,dc=com",
+		ldap.ScopeSingleLevel, ldap.NeverDerefAliases, 0, 0, false,
+		filter,
+		[]string{"sendmailMTAAliasValue", "rhatEmailAddress"},
+		nil,
+	)
+
+	ldapRes, err := c.Search(searchRequest)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	for _, entry := range ldapRes.Entries {
+		if len(entry.GetAttributeValues("sendmailMTAAliasValue")) > 1 {
+			continue
+		}
+		ldapMember.Mails = append(ldapMember.Mails, entry.GetAttributeValue("rhatEmailAddress"))
+	}
+
+}
+
 // Query TBD
-func (c *Conn) Query() map[string]string {
+func (c *Conn) GetMembers() []*Member {
+	var ldapMembers []*Member
 
 	searchRequest := ldap.NewSearchRequest(
 		c.baseDN,
 		ldap.ScopeSingleLevel, ldap.NeverDerefAliases, 0, 0, false,
 		c.filter,
-		[]string{"uid", "cn"},
+		[]string{"uid", "cn", "mail"},
 		nil,
 	)
 	ldapRes, err := c.Search(searchRequest)
@@ -67,15 +101,15 @@ func (c *Conn) Query() map[string]string {
 		log.Fatalln(err)
 	}
 
-	result := make(map[string]string)
 	for _, entry := range ldapRes.Entries {
 		uid := entry.GetAttributeValue("uid")
 		fullname := entry.GetAttributeValue("cn")
+		mail := entry.GetAttributeValue("mail")
 
-		result[uid] = fullname
+		ldapMembers = append(ldapMembers, &Member{uid, fullname, []string{mail}})
 	}
 
 	// TODO: LDAP folks may have mail aliases they use for Trello
 
-	return result
+	return ldapMembers
 }

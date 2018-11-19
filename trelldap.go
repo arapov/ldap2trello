@@ -6,6 +6,7 @@ import (
 	"log"
 
 	"github.com/arapov/trelldap/env"
+	"github.com/arapov/trelldap/ldapx"
 )
 
 const (
@@ -16,18 +17,19 @@ const (
 // Meta defines the data required to do the synchronization between
 // LDAP and Trello Organization
 type Meta struct {
-	Fullname       string `json:"fullname"`
-	TrelloActive   bool   `json:"trello"`
-	TrelloID       string `json:"trelloid"`
-	TrelloUserName string `json:"trellouser"`
-	TrelloMail     string `json:"trellomail"`
+	Fullname       string   `json:"fullname"`
+	Mails          []string `json:"mails"`
+	TrelloActive   bool     `json:"trello"`
+	TrelloID       string   `json:"trelloid"`
+	TrelloUserName string   `json:"trellouser"`
+	TrelloMail     string   `json:"trellomail"`
 
 	seenInLDAP bool
 }
 
 // Members is ssia, map of Meta data
 type Members struct {
-	Map map[string]*Meta `json:"members"`
+	Meta map[string]*Meta `json:"members"`
 }
 
 func (m *Members) Read() error {
@@ -52,12 +54,12 @@ func main() {
 
 	// members - TODO: document the importance
 	var members Members
-	var ldapMembers map[string]string
+	var ldapMembers []*ldapx.Member
 
 	if err := members.Read(); err != nil {
 		log.Println("no", datafile, "file was found.")
 
-		members.Map = make(map[string]*Meta)
+		members.Meta = make(map[string]*Meta)
 	}
 
 	// trello && ldap connections to work with
@@ -65,22 +67,26 @@ func main() {
 	ldap := c.LDAP.Dial()
 
 	// Add newly discovered in LDAP People to 'members'
-	ldapMembers = ldap.Query()
-	for uid, fullname := range ldapMembers {
-		if _, ok := members.Map[uid]; !ok {
-			members.Map[uid] = &Meta{
-				Fullname:     fullname,
+	ldapMembers = ldap.GetMembers()
+	for _, ldapMember := range ldapMembers {
+		uid := ldapMember.UID
+
+		if _, ok := members.Meta[uid]; !ok {
+			members.Meta[uid] = &Meta{
+				Fullname:     ldapMember.Fullname,
+				Mails:        ldapMember.Mails,
 				TrelloActive: true,
 			}
 		}
 
 		// Mark everyone who is in LDAP, those who end up with
 		// false are the material to be removed from Trello.
-		members.Map[uid].seenInLDAP = true
+		members.Meta[uid].seenInLDAP = true
 
-		if members.Map[uid].TrelloActive && members.Map[uid].TrelloID == "" {
+		// TODO: Don't look for aliases of known uids
+		ldap.GetAliases(ldapMember)
+		members.Meta[uid].Mails = ldapMember.Mails
 
-		}
 	}
 
 	// TODO: do the stuff!

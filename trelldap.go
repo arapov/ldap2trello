@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"time"
 
 	"github.com/arapov/trelldap/env"
-	"github.com/arapov/trelldap/ldapx"
 )
 
 const (
@@ -21,8 +21,9 @@ type Meta struct {
 	Mails          []string `json:"mails"`
 	TrelloActive   bool     `json:"trello"`
 	TrelloID       string   `json:"trelloid"`
-	TrelloUserName string   `json:"trellouser"`
 	TrelloMail     string   `json:"trellomail"`
+	TrelloName     string   `json:"trelloname"`
+	TrelloUserName string   `json:"trellouser"`
 
 	seenInLDAP bool
 }
@@ -41,7 +42,7 @@ func (m *Members) Read() error {
 
 func (m *Members) Write() error {
 	jsonBytes, _ := json.MarshalIndent(m, "", "  ")
-	err := ioutil.WriteFile(datafile, jsonBytes, 0644)
+	err := ioutil.WriteFile(datafile, jsonBytes, 0640)
 
 	return err
 }
@@ -54,7 +55,6 @@ func main() {
 
 	// members - TODO: document the importance
 	var members Members
-	var ldapMembers []*ldapx.Member
 
 	if err := members.Read(); err != nil {
 		log.Println("no", datafile, "file was found.")
@@ -67,31 +67,47 @@ func main() {
 	ldap := c.LDAP.Dial()
 
 	// Add newly discovered in LDAP People to 'members'
-	ldapMembers = ldap.GetMembers()
-	for _, ldapMember := range ldapMembers {
-		uid := ldapMember.UID
-
-		if _, ok := members.Meta[uid]; !ok {
+	lMembers := ldap.GetMembers()
+	for _, lMember := range lMembers {
+		member, ok := members.Meta[lMember.UID]
+		if !ok {
 			// TODO: What if we don't want to look for aliases
 			// cmd-line parameter
-			ldap.GetAliases(ldapMember)
+			ldap.GetAliases(lMember)
 
-			members.Meta[uid] = &Meta{
-				Fullname:     ldapMember.Fullname,
-				Mails:        ldapMember.Mails,
-				TrelloActive: true,
+			member = &Meta{
+				Fullname:     lMember.Fullname,
+				Mails:        lMember.Mails,
+				TrelloActive: true, // default state
 			}
 		}
 
 		// Mark everyone who is in LDAP, those who end up with
 		// false are the material to be removed from Trello.
-		members.Meta[uid].seenInLDAP = true
+		member.seenInLDAP = true
+
+		// .TrelloActive is the default state for the new discovered member
+		// we try to find member in Trello when the TrelloID is empty.
+		if member.TrelloActive && member.TrelloID == "" {
+			for _, mail := range lMember.Mails {
+			retry:
+				tMember, statusCode := trello.Search(mail)
+				if statusCode == 429 {
+					log.Println("Hit the Trello API limit. Sleeping for 5 minutes.")
+					members.Write()
+					time.Sleep(5 * time.Minute)
+					goto retry
+				}
+
+				member.TrelloActive = tMember.Active
+				member.TrelloID = tMember.ID
+				member.TrelloMail = mail
+				member.TrelloName = tMember.Fullname
+				member.TrelloUserName = tMember.Username
+			}
+		}
 
 	}
-
-	// TODO: do the stuff!
-
-	log.Println(trello.Search("aarapov@redhat.com"))
 
 	if err := members.Write(); err != nil {
 		log.Fatalln(err)

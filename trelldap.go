@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/arapov/trelldap/trellox"
+	pb "gopkg.in/cheggaaa/pb.v2"
 
 	"github.com/arapov/trelldap/env"
 )
@@ -65,7 +66,9 @@ func main() {
 
 	// Add newly discovered in LDAP People to 'members'
 	lMembers := ldap.GetMembers()
+	progress := pb.StartNew(len(lMembers))
 	for _, lMember := range lMembers {
+		progress.Increment()
 		if _, ok := members.Meta[lMember.UID]; !ok {
 		reconnect:
 			// TODO: What if we don't want to look for aliases
@@ -92,7 +95,7 @@ func main() {
 			retry: // TODO: move this to trellox.go
 				tMember, statusCode := trello.Search(mail)
 				if statusCode == 429 {
-					log.Println("Trello API limit has been exceeded. Sleeping for 5 minutes.")
+					log.Println("Trello API limit has been reached. Sleeping for 5 minutes.")
 					members.Write()
 					time.Sleep(5 * time.Minute)
 					goto retry
@@ -103,6 +106,7 @@ func main() {
 		}
 
 	}
+	progress.Finish()
 
 	if err := members.Write(); err != nil {
 		log.Fatalln(err)

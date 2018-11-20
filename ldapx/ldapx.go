@@ -60,7 +60,7 @@ func (c *Info) Dial() *Conn {
 
 // TODO: Generalize all hardcoded strings
 
-func (c *Conn) GetAliases(ldapMember *Member) {
+func (c *Conn) GetAliases(ldapMember *Member) error {
 	filter := fmt.Sprintf("(sendmailMTAAliasValue=%s)", ldapMember.UID)
 
 	searchRequest := ldap.NewSearchRequest(
@@ -73,7 +73,7 @@ func (c *Conn) GetAliases(ldapMember *Member) {
 
 	ldapRes, err := c.Search(searchRequest)
 	if err != nil {
-		log.Fatalln(err)
+		return err
 	}
 
 	for _, entry := range ldapRes.Entries {
@@ -83,6 +83,7 @@ func (c *Conn) GetAliases(ldapMember *Member) {
 		ldapMember.Mails = append(ldapMember.Mails, entry.GetAttributeValue("rhatEmailAddress"))
 	}
 
+	return nil
 }
 
 // Query TBD

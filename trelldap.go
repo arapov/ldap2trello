@@ -67,9 +67,12 @@ func main() {
 	lMembers := ldap.GetMembers()
 	for _, lMember := range lMembers {
 		if _, ok := members.Meta[lMember.UID]; !ok {
+		reconnect:
 			// TODO: What if we don't want to look for aliases
-			// cmd-line parameter
-			ldap.GetAliases(lMember) // LDAP connection may die, while waiting Trello API
+			if err := ldap.GetAliases(lMember); err != nil {
+				ldap = c.LDAP.Dial()
+				goto reconnect
+			}
 
 			members.Meta[lMember.UID] = &Meta{
 				Fullname: lMember.Fullname,

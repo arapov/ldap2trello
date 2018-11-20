@@ -108,6 +108,8 @@ func main() {
 	}
 	progress.Finish()
 
+	trello.GetOrgID()
+
 	if err := members.Write(); err != nil {
 		log.Fatalln(err)
 	}

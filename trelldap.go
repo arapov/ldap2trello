@@ -6,6 +6,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/arapov/trelldap/trellox"
+
 	"github.com/arapov/trelldap/env"
 )
 
@@ -17,13 +19,9 @@ const (
 // Meta defines the data required to do the synchronization between
 // LDAP and Trello Organization
 type Meta struct {
-	Fullname       string   `json:"fullname"`
-	Mails          []string `json:"mails"`
-	TrelloActive   bool     `json:"trello"`
-	TrelloID       string   `json:"trelloid"`
-	TrelloMail     string   `json:"trellomail"`
-	TrelloName     string   `json:"trelloname"`
-	TrelloUserName string   `json:"trellouser"`
+	Fullname string                     `json:"fullname"`
+	Mails    []string                   `json:"mails"`
+	Trello   map[string]*trellox.Member `json:"trello"`
 
 	seenInLDAP bool
 }
@@ -55,7 +53,6 @@ func main() {
 
 	// members - TODO: document the importance
 	var members Members
-
 	if err := members.Read(); err != nil {
 		log.Println("no", datafile, "file was found.")
 
@@ -69,41 +66,36 @@ func main() {
 	// Add newly discovered in LDAP People to 'members'
 	lMembers := ldap.GetMembers()
 	for _, lMember := range lMembers {
-		member, ok := members.Meta[lMember.UID]
-		if !ok {
+		if _, ok := members.Meta[lMember.UID]; !ok {
 			// TODO: What if we don't want to look for aliases
 			// cmd-line parameter
-			ldap.GetAliases(lMember)
+			ldap.GetAliases(lMember) // LDAP connection may die, while waiting Trello API
 
-			member = &Meta{
-				Fullname:     lMember.Fullname,
-				Mails:        lMember.Mails,
-				TrelloActive: true, // default state
+			members.Meta[lMember.UID] = &Meta{
+				Fullname: lMember.Fullname,
+				Mails:    lMember.Mails,
+				Trello:   make(map[string]*trellox.Member),
 			}
 		}
+		member := members.Meta[lMember.UID]
 
 		// Mark everyone who is in LDAP, those who end up with
 		// false are the material to be removed from Trello.
 		member.seenInLDAP = true
 
-		// .TrelloActive is the default state for the new discovered member
-		// we try to find member in Trello when the TrelloID is empty.
-		if member.TrelloActive && member.TrelloID == "" {
+		if _, ok := member.Trello[lMember.Mails[0]]; !ok {
 			for _, mail := range lMember.Mails {
-			retry:
+
+			retry: // TODO: move this to trellox.go
 				tMember, statusCode := trello.Search(mail)
 				if statusCode == 429 {
-					log.Println("Hit the Trello API limit. Sleeping for 5 minutes.")
+					log.Println("Trello API limit has been exceeded. Sleeping for 5 minutes.")
 					members.Write()
 					time.Sleep(5 * time.Minute)
 					goto retry
 				}
 
-				member.TrelloActive = tMember.Active
-				member.TrelloID = tMember.ID
-				member.TrelloMail = mail
-				member.TrelloName = tMember.Fullname
-				member.TrelloUserName = tMember.Username
+				member.Trello[mail] = tMember
 			}
 		}
 

@@ -28,6 +28,11 @@ type Member struct {
 	Organizations []string `json:"idOrganizations"`
 }
 
+type OrgMember struct {
+	IDMember   string `json:"idMember"`
+	MemberType string `json:"memberType"`
+}
+
 func (c *Info) Dial() *Info {
 	return c
 }
@@ -67,6 +72,15 @@ func (c *Info) GetOrgID() string {
 	c.callAPI(api, &tOrganization)
 
 	return tOrganization.ID
+}
+
+func (c *Info) GetOrgMembers() []OrgMember {
+	var oMembers []OrgMember
+
+	api := fmt.Sprintf("/organizations/%s/memberships", c.Organization)
+	c.callAPI(api, &oMembers)
+
+	return oMembers
 }
 
 func (c *Info) Search(email string) *Member {

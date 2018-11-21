@@ -98,6 +98,7 @@ func main() {
 	progress.Finish()
 
 	trello.GetOrgID()
+	trello.GetOrgMembers()
 
 	if err := members.Write(); err != nil {
 		log.Fatalln(err)

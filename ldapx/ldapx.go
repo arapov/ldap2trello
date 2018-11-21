@@ -143,8 +143,6 @@ func (c *Conn) GetMembers() []*Member {
 		ldapMembers = append(ldapMembers, &Member{uid, fullname, []string{mail}})
 	}
 
-	// TODO: LDAP folks may have mail aliases they use for Trello
-
 	return ldapMembers
 }
 

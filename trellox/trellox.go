@@ -6,6 +6,12 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"strings"
+	"time"
+)
+
+const (
+	trelloApiURL = "https://api.trello.com/1"
 )
 
 type Info struct {
@@ -26,38 +32,48 @@ func (c *Info) Dial() *Info {
 	return c
 }
 
-func (c *Info) GetOrgID() string {
-	var tOrganization struct {
-		ID string `json:"id"`
+func (c *Info) callAPI(api string, v interface{}) {
+	auth := fmt.Sprintf("key=%s&token=%s", c.Key, c.Token)
+	if strings.Contains(api, "?") {
+		auth = fmt.Sprintf("&%s", auth)
+	} else {
+		auth = fmt.Sprintf("?%s", auth)
 	}
 
-	httpRequest := fmt.Sprintf("https://api.trello.com/1/organizations/%s?key=%s&token=%s", c.Organization, c.Key, c.Token)
-	httpRes, err := http.Get(httpRequest)
-	if err != nil {
-		log.Fatalln(err)
-	}
-
-	data, _ := ioutil.ReadAll(httpRes.Body)
-	json.Unmarshal(data, &tOrganization)
-
-	return tOrganization.ID
-}
-
-func (c *Info) Search(email string) (*Member, int) {
-	var tMembers []Member
-
-	httpRequest := fmt.Sprintf("https://api.trello.com/1/search/members?query=%s&key=%s&token=%s&limit=1", email, c.Key, c.Token)
+retry:
+	httpRequest := fmt.Sprintf("%s%s%s", trelloApiURL, api, auth)
 	httpRes, err := http.Get(httpRequest)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
 	if httpRes.StatusCode == 429 {
-		return &Member{}, httpRes.StatusCode
+		// TODO: members.Write()
+		log.Println("Trello API limit has been reached. Sleeping for 5 minutes.")
+		time.Sleep(5 * time.Minute)
+		goto retry
 	}
 
 	data, _ := ioutil.ReadAll(httpRes.Body)
-	json.Unmarshal(data, &tMembers)
+	json.Unmarshal(data, &v)
+}
 
-	return &tMembers[0], httpRes.StatusCode
+func (c *Info) GetOrgID() string {
+	var tOrganization struct {
+		ID string `json:"id"`
+	}
+
+	api := fmt.Sprintf("/organization/%s", c.Organization)
+	c.callAPI(api, &tOrganization)
+
+	return tOrganization.ID
+}
+
+func (c *Info) Search(email string) *Member {
+	var tMembers []Member
+
+	api := fmt.Sprintf("/search/members?query=%s&limit=1", email)
+	c.callAPI(api, &tMembers)
+
+	return &tMembers[0]
 }

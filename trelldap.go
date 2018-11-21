@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
-	"time"
 
 	"github.com/arapov/trelldap/trellox"
 	pb "gopkg.in/cheggaaa/pb.v2"
@@ -91,17 +90,7 @@ func main() {
 
 		if _, ok := member.Trello[lMember.Mails[0]]; !ok {
 			for _, mail := range lMember.Mails {
-
-			retry: // TODO: move this to trellox.go
-				tMember, statusCode := trello.Search(mail)
-				if statusCode == 429 {
-					log.Println("Trello API limit has been reached. Sleeping for 5 minutes.")
-					members.Write()
-					time.Sleep(5 * time.Minute)
-					goto retry
-				}
-
-				member.Trello[mail] = tMember
+				member.Trello[mail] = trello.Search(mail)
 			}
 		}
 

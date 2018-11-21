@@ -11,23 +11,42 @@ import (
 	ldap "gopkg.in/ldap.v2"
 )
 
+type Members struct {
+	Filter  string `json:"filter"`
+	BaseDN  string `json:"baseDN"`
+	Attribs struct {
+		UID      string `json:"uid"`
+		Fullname string `json:"fullname"`
+		Mail     string `json:"mail"`
+	} `json:"attributes"`
+}
+
+type Aliases struct {
+	Filter  string `json:"filter"`
+	BaseDN  string `json:"baseDN"`
+	Attribs struct {
+		Once string `json:"once"`
+		Mail string `json:"mail"`
+	} `json:"attributes"`
+}
+
 // Info keeps LDAP setting
 type Info struct {
 	Host     string `json:"hostname"`
 	Port     string `json:"port"`
-	Secure   bool   `json:"secure"`
 	BindDN   string `json:"bindDN"`
 	Password string `json:"password"`
-	Filter   string `json:"filter"`
-	BaseDN   string `json:"baseDN"`
+
+	Members `json:"members"`
+	Aliases `json:"aliases"`
 }
 
 // Conn represents an LDAP Connection
 type Conn struct {
 	*ldap.Conn
 
-	baseDN string
-	filter string
+	*Members
+	*Aliases
 }
 
 type Member struct {
@@ -44,7 +63,7 @@ func (c *Info) Dial() *Conn {
 		log.Fatalln(err)
 	}
 
-	if c.Secure {
+	if c.BindDN != "" {
 		if c.Password == "" {
 			c.Password = askPassword()
 		}
@@ -59,22 +78,25 @@ func (c *Info) Dial() *Conn {
 	}
 
 	return &Conn{
-		Conn:   pConn,
-		baseDN: c.BaseDN,
-		filter: c.Filter,
+		Conn:    pConn,
+		Members: &c.Members,
+		Aliases: &c.Aliases,
 	}
 }
 
 // TODO: Generalize all hardcoded strings
 
 func (c *Conn) GetAliases(ldapMember *Member) error {
-	filter := fmt.Sprintf("(sendmailMTAAliasValue=%s)", ldapMember.UID)
+	filter := strings.Replace(c.Aliases.Filter, "<uid>", ldapMember.UID, 1)
+
+	mailAttr := c.Aliases.Attribs.Mail
+	onceAttr := c.Aliases.Attribs.Once // this is pure nonsense, though keep it
 
 	searchRequest := ldap.NewSearchRequest(
-		"ou=mx,dc=redhat,dc=com",
+		c.Aliases.BaseDN,
 		ldap.ScopeSingleLevel, ldap.NeverDerefAliases, 0, 0, false,
 		filter,
-		[]string{"sendmailMTAAliasValue", "rhatEmailAddress"},
+		[]string{onceAttr, mailAttr},
 		nil,
 	)
 
@@ -84,10 +106,10 @@ func (c *Conn) GetAliases(ldapMember *Member) error {
 	}
 
 	for _, entry := range ldapRes.Entries {
-		if len(entry.GetAttributeValues("sendmailMTAAliasValue")) > 1 {
+		if len(entry.GetAttributeValues(onceAttr)) > 1 {
 			continue
 		}
-		ldapMember.Mails = append(ldapMember.Mails, entry.GetAttributeValue("rhatEmailAddress"))
+		ldapMember.Mails = append(ldapMember.Mails, entry.GetAttributeValue(mailAttr))
 	}
 
 	return nil
@@ -97,11 +119,15 @@ func (c *Conn) GetAliases(ldapMember *Member) error {
 func (c *Conn) GetMembers() []*Member {
 	var ldapMembers []*Member
 
+	uidAttr := c.Members.Attribs.UID
+	fullnameAttr := c.Members.Attribs.Fullname
+	mailAttr := c.Members.Attribs.Mail
+
 	searchRequest := ldap.NewSearchRequest(
-		c.baseDN,
+		c.Members.BaseDN,
 		ldap.ScopeSingleLevel, ldap.NeverDerefAliases, 0, 0, false,
-		c.filter,
-		[]string{"uid", "cn", "mail"},
+		c.Members.Filter,
+		[]string{uidAttr, fullnameAttr, mailAttr},
 		nil,
 	)
 	ldapRes, err := c.Search(searchRequest)
@@ -110,9 +136,9 @@ func (c *Conn) GetMembers() []*Member {
 	}
 
 	for _, entry := range ldapRes.Entries {
-		uid := entry.GetAttributeValue("uid")
-		fullname := entry.GetAttributeValue("cn")
-		mail := entry.GetAttributeValue("mail")
+		uid := entry.GetAttributeValue(uidAttr)
+		fullname := entry.GetAttributeValue(fullnameAttr)
+		mail := entry.GetAttributeValue(mailAttr)
 
 		ldapMembers = append(ldapMembers, &Member{uid, fullname, []string{mail}})
 	}

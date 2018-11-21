@@ -4,7 +4,10 @@ import (
 	"crypto/tls"
 	"fmt"
 	"log"
+	"strings"
+	"syscall"
 
+	"golang.org/x/crypto/ssh/terminal"
 	ldap "gopkg.in/ldap.v2"
 )
 
@@ -42,6 +45,10 @@ func (c *Info) Dial() *Conn {
 	}
 
 	if c.Secure {
+		if c.Password == "" {
+			c.Password = askPassword()
+		}
+
 		if err := pConn.StartTLS(&tls.Config{ServerName: c.Host}); err != nil {
 			log.Fatalln(err)
 		}
@@ -113,4 +120,16 @@ func (c *Conn) GetMembers() []*Member {
 	// TODO: LDAP folks may have mail aliases they use for Trello
 
 	return ldapMembers
+}
+
+func askPassword() string {
+	fmt.Print("LDAP Password: ")
+	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		log.Println(err)
+	}
+	password := string(bytePassword)
+	fmt.Println()
+
+	return strings.TrimSpace(password)
 }

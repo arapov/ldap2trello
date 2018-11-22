@@ -1,15 +1,30 @@
 {
-    "trello": {
-      "key": "vdp7d4nvlndkmugge3fos7k8kxjthre6",
-      "token": "keyy37sxwp8tullqjboa22wnkh5npvj96vbzb2w0am9jhdurxkcvv4fnrqibhigv"
-    },
-    "ldap": {
-      "hostname": "ldap.acme.com",
-      "port": "389",
-      "secure": true,
-      "bindDN": "uid=johndoe,ou=users,dc=acme,dc=com",
-      "password": "env:LDAP_PASSWORD",
+  "trello": {
+    "key": "vdp7d4nvlndkmugge3fos7k8kxjthre6",
+    "token": "keyy37sxwp8tullqjboa22wnkh5npvj96vbzb2w0am9jhdurxkcvv4fnrqibhigv",
+    "organization": "mytrelloorg"
+  },
+  "ldap": {
+    "hostname": "ldap.acme.com",
+    "port": "389",
+    "bindDN": "uid=johndoe,ou=users,dc=acme,dc=com",
+    "password": "env:LDAP_PASSWORD",
+    "members": {
       "filter": "(&(objectClass=person)(c=US))",
-      "baseDN": "ou=users,dc=acme,dc=com"
+      "baseDN": "ou=users,dc=acme,dc=com",
+      "attributes": {
+        "uid": "uid",
+        "fullname": "cn",
+        "mail": "mail"
+      }
+    },
+    "aliases": {
+      "filter": "(sendmailMTAAliasValue=<uid>)",
+      "baseDN": "ou=mx,dc=acme,dc=com",
+      "attributes": {
+        "once": "sendmailMTAAliasValue",
+        "mail": "acmeEmailAddress"
+      }
     }
   }
+}

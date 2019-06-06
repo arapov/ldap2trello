@@ -7,8 +7,8 @@ import (
 	"strings"
 	"syscall"
 
+	ldap "github.com/go-ldap/ldap"
 	"golang.org/x/crypto/ssh/terminal"
-	ldap "gopkg.in/ldap.v2"
 )
 
 type Members struct {
@@ -65,10 +65,10 @@ func (c *Info) Dial() *Conn {
 
 	if c.BindDN != "" {
 		if c.Password == "" {
-			c.Password = askPassword()
+			c.Password = promptPassword()
 		}
 
-		if err := pConn.StartTLS(&tls.Config{ServerName: c.Host}); err != nil {
+		if err := pConn.StartTLS(&tls.Config{ServerName: c.Host, InsecureSkipVerify: true}); err != nil {
 			log.Fatalln(err)
 		}
 
@@ -146,7 +146,7 @@ func (c *Conn) GetMembers() []*Member {
 	return ldapMembers
 }
 
-func askPassword() string {
+func promptPassword() string {
 	fmt.Print("LDAP Password: ")
 	bytePassword, err := terminal.ReadPassword(int(syscall.Stdin))
 	if err != nil {

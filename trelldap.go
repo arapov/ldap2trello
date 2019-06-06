@@ -96,6 +96,13 @@ func main() {
 	trello.GetOrgID()
 	trello.GetOrgMembers()
 
+	// list missing in ldap people
+	for k, v := range members.Meta {
+		if v.seenInLDAP == false {
+			log.Println(k, v.seenInLDAP)
+		}
+	}
+
 	if err := members.Write(); err != nil {
 		log.Fatalln(err)
 	}

@@ -5,10 +5,8 @@ import (
 	"io/ioutil"
 	"log"
 
-	"github.com/arapov/trelldap/trellox"
-	pb "gopkg.in/cheggaaa/pb.v2"
-
 	"github.com/arapov/trelldap/env"
+	"github.com/arapov/trelldap/trellox"
 )
 
 const (
@@ -65,9 +63,7 @@ func main() {
 
 	// Add newly discovered in LDAP People to 'members'
 	lMembers := ldap.GetMembers()
-	progress := pb.StartNew(len(lMembers))
 	for _, lMember := range lMembers {
-		progress.Increment()
 		if _, ok := members.Meta[lMember.UID]; !ok {
 		reconnect:
 			// TODO: What if we don't want to look for aliases
@@ -89,13 +85,13 @@ func main() {
 		member.seenInLDAP = true
 
 		if _, ok := member.Trello[lMember.Mails[0]]; !ok {
+			// Newbie has been found
 			for _, mail := range lMember.Mails {
 				member.Trello[mail] = trello.Search(mail)
 			}
 		}
 
 	}
-	progress.Finish()
 
 	trello.GetOrgID()
 	trello.GetOrgMembers()

@@ -61,6 +61,9 @@ func main() {
 	trello := c.Trello.Dial()
 	ldap := c.LDAP.Dial()
 
+	// TODO: make use of the output
+	_ = trello.GetOrgBoardMeMemberIDs()
+
 	// Add newly discovered in LDAP People to 'members'
 	lMembers := ldap.GetMembers()
 	for _, lMember := range lMembers {

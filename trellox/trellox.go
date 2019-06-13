@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 )
@@ -18,6 +19,7 @@ type Info struct {
 	Key          string `json:"key"`
 	Token        string `json:"token"`
 	Organization string `json:"organization"`
+	Board        string `json:"board"`
 }
 
 type Member struct {
@@ -28,6 +30,12 @@ type Member struct {
 	Organizations []string `json:"idOrganizations"`
 }
 
+type OrgBoardMembers struct {
+	ID          string `json:"id"`
+	Memberships []struct {
+		IDMember string `json:"idMember"`
+	} `json:"memberships"`
+}
 type OrgMember struct {
 	IDMember   string `json:"idMember"`
 	MemberType string `json:"memberType"`
@@ -72,6 +80,20 @@ func (c *Info) GetOrgID() string {
 	c.callAPI(api, &tOrganization)
 
 	return tOrganization.ID
+}
+
+func (c *Info) GetOrgBoardMeMemberIDs() map[string]struct{} {
+	var oBoardMembers []OrgBoardMembers
+
+	api := fmt.Sprintf("/organizations/%s/boards?filter=%s&fields=all", c.Organization, url.QueryEscape(c.Board))
+	c.callAPI(api, &oBoardMembers)
+
+	ids := make(map[string]struct{})
+	for _, id := range oBoardMembers[0].Memberships {
+		ids[id.IDMember] = struct{}{}
+	}
+
+	return ids
 }
 
 func (c *Info) GetOrgMembers() []OrgMember {

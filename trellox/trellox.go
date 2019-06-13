@@ -105,16 +105,6 @@ func (c *Info) GetOrgMembers() []OrgMember {
 	return oMembers
 }
 
-func (c *Info) GetBoardMembers() []OrgMember {
-	var bMembers []OrgMember
-
-	// TODO: remove hardcode
-	api := fmt.Sprintf("/boards/%s/memberships", "kFJnUebq")
-	c.callAPI(api, &bMembers)
-
-	return bMembers
-}
-
 func (c *Info) Search(email string) *Member {
 	var tMembers []Member
 

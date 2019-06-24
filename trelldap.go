@@ -14,17 +14,18 @@ const (
 	datafile   = "members.json"
 )
 
-// Meta defines the data required to do the synchronization between
+// Meta contains the data required to do the synchronization between
 // LDAP and Trello Organization
 type Meta struct {
 	Fullname string                     `json:"fullname"`
 	Mails    []string                   `json:"mails"`
 	Trello   map[string]*trellox.Member `json:"trello"`
 
-	seenInLDAP bool
+	seenInLDAP   bool
+	seenInTrello bool
 }
 
-// Members is ssia, map of Meta data
+// TODO: name it, rework it, map of Meta data
 type Members struct {
 	Meta map[string]*Meta `json:"members"`
 }
@@ -52,25 +53,28 @@ func main() {
 	// members - TODO: document the importance
 	var members Members
 	if err := members.Read(); err != nil {
-		log.Println("no", datafile, "file was found.")
-
 		members.Meta = make(map[string]*Meta)
+		log.Println("no", datafile, "file was found.")
 	}
 
 	// trello && ldap connections to work with
 	trello := c.Trello.Dial()
 	ldap := c.LDAP.Dial()
 
-	// TODO: make use of the output
-	_ = trello.GetOrgBoardMeMemberIDs()
-
-	// Add newly discovered in LDAP People to 'members'
+	// tMembers - represent Trello UIDs, which are the members of Trello Org.
+	tMembers := trello.GetOrgBoardMeMemberIDs()
+	// lMembers - represent LDAP members, which should be in Trello Org.
 	lMembers := ldap.GetMembers()
+
 	for _, lMember := range lMembers {
 		if _, ok := members.Meta[lMember.UID]; !ok {
+			// We've found new LDAP user we aren't aware of
 		reconnect:
 			// TODO: What if we don't want to look for aliases
 			if err := ldap.GetAliases(lMember); err != nil {
+				// Trello API has limits for calls, so that calls are throttled.
+				// LDAP connection could be lost, while we wait for Trello API
+				// to be available
 				ldap = c.LDAP.Dial()
 				goto reconnect
 			}
@@ -81,31 +85,31 @@ func main() {
 				Trello:   make(map[string]*trellox.Member),
 			}
 		}
+
+		// member is the common container of LDAPxTrello Member
 		member := members.Meta[lMember.UID]
 
-		// Mark everyone who is in LDAP, those who end up with
-		// false are the material to be removed from Trello.
+		// Mark member who is in LDAP. Those who end up with false are
+		// material to be removed from Trello and cache file.
 		member.seenInLDAP = true
 
-		if _, ok := member.Trello[lMember.Mails[0]]; !ok {
-			// Newbie has been found
-			for _, mail := range lMember.Mails {
+		for _, mail := range lMember.Mails {
+			if _, ok := member.Trello[mail]; !ok {
+				// Newbie has been found
 				member.Trello[mail] = trello.Search(mail)
 			}
-		}
 
-	}
-
-	trello.GetOrgID()
-	trello.GetOrgMembers()
-
-	// list missing in ldap people
-	for k, v := range members.Meta {
-		if v.seenInLDAP == false {
-			log.Println(k, v.seenInLDAP)
+			if _, ok := tMembers[member.Trello[mail].ID]; !ok {
+				member.seenInTrello = false
+			}
 		}
 	}
 
+	// TODO: isUseful?
+	//	trello.GetOrgID()
+	//	trello.GetOrgMembers()
+
+	// Serialize members
 	if err := members.Write(); err != nil {
 		log.Fatalln(err)
 	}

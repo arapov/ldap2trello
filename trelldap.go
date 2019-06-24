@@ -109,6 +109,19 @@ func main() {
 	//	trello.GetOrgID()
 	//	trello.GetOrgMembers()
 
+	// TODO:
+	// 1. unsubscribe .seenInLDAP = false from Org
+	// -- DELETE /boards/{id}/members/{idMember}
+	// -- DELETE /organizations/{id}/members/{idMember}
+	// 1.a. remove from cache
+	// -- remove entity from members/Meta
+	// 2. subscribe .seenInTrello = false to Org
+	// -- PUT /organizations/{id}/members/{idMember}
+	// 2.a. concern trello username vs multiple mails
+	for _, member := range members.Meta {
+		log.Println(member.Fullname, member.seenInLDAP, member.seenInTrello)
+	}
+
 	// Serialize members
 	if err := members.Write(); err != nil {
 		log.Fatalln(err)

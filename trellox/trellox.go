@@ -23,7 +23,6 @@ type Info struct {
 }
 
 type Member struct {
-	Active        bool     `json:"active"`
 	Fullname      string   `json:"fullName"`
 	ID            string   `json:"id"`
 	Username      string   `json:"username"`

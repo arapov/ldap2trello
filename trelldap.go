@@ -62,7 +62,7 @@ func main() {
 	ldap := c.LDAP.Dial()
 
 	// tMembers - represent Trello UIDs, which are the members of Trello Org.
-	tMembers := trello.GetOrgBoardMeMemberIDs()
+	tMembers := trello.GetBoardMembers()
 	// lMembers - represent LDAP members, which should be in Trello Org.
 	lMembers := ldap.GetMembers()
 
@@ -107,7 +107,7 @@ func main() {
 
 	// TODO: isUseful?
 	//	trello.GetOrgID()
-	//	trello.GetOrgMembers()
+	trello.GetOrgMembers()
 
 	// TODO:
 	// 1. unsubscribe .seenInLDAP = false from Org

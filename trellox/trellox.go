@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -19,7 +18,7 @@ type Info struct {
 	Key          string `json:"key"`
 	Token        string `json:"token"`
 	Organization string `json:"organization"`
-	Board        string `json:"board"`
+	BoardID      string `json:"boardid"`
 }
 
 type Member struct {
@@ -27,17 +26,6 @@ type Member struct {
 	ID            string   `json:"id"`
 	Username      string   `json:"username"`
 	Organizations []string `json:"idOrganizations"`
-}
-
-type OrgBoardMembers struct {
-	ID          string `json:"id"`
-	Memberships []struct {
-		IDMember string `json:"idMember"`
-	} `json:"memberships"`
-}
-type OrgMember struct {
-	IDMember   string `json:"idMember"`
-	MemberType string `json:"memberType"`
 }
 
 func (c *Info) Dial() *Info {
@@ -81,27 +69,30 @@ func (c *Info) GetOrgID() string {
 	return tOrganization.ID
 }
 
-func (c *Info) GetOrgBoardMeMemberIDs() map[string]struct{} {
-	var oBoardMembers []OrgBoardMembers
-
-	api := fmt.Sprintf("/organizations/%s/boards?filter=%s&fields=all", c.Organization, url.QueryEscape(c.Board))
-	c.callAPI(api, &oBoardMembers)
-
-	ids := make(map[string]struct{})
-	for _, id := range oBoardMembers[0].Memberships {
-		ids[id.IDMember] = struct{}{}
+func (c *Info) GetBoardMembers() map[string]struct{} {
+	var res []struct {
+		ID       string `json:"id"`
+		FullName string `json:"fullName"`
+		UserName string `json:"username"`
 	}
 
-	return ids
+	api := fmt.Sprintf("/boards/%s/members", c.BoardID)
+	c.callAPI(api, &res)
+
+	return mapify(res, "id")
 }
 
-func (c *Info) GetOrgMembers() []OrgMember {
-	var oMembers []OrgMember
+func (c *Info) GetOrgMembers() map[string]struct{} {
+	var res []struct {
+		ID       string `json:"id"`
+		FullName string `json:"fullName"`
+		UserName string `json:"username"`
+	}
 
-	api := fmt.Sprintf("/organizations/%s/memberships", c.Organization)
-	c.callAPI(api, &oMembers)
+	api := fmt.Sprintf("/organizations/%s/members", c.Organization)
+	c.callAPI(api, &res)
 
-	return oMembers
+	return mapify(res, "id")
 }
 
 func (c *Info) Search(email string) *Member {
@@ -111,4 +102,19 @@ func (c *Info) Search(email string) *Member {
 	c.callAPI(api, &tMembers)
 
 	return &tMembers[0]
+}
+
+func mapify(structure interface{}, key string) map[string]struct{} {
+	res := make(map[string]struct{})
+
+	var records []map[string]interface{}
+	jsonByte, _ := json.Marshal(structure)
+	json.Unmarshal(jsonByte, &records)
+
+	for _, record := range records {
+		v := record[key].(string)
+		res[v] = struct{}{}
+	}
+
+	return res
 }

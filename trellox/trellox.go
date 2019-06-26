@@ -82,7 +82,7 @@ func (c *Info) GetBoardMembers() map[string]struct{} {
 	return mapify(res, "id")
 }
 
-func (c *Info) GetOrgMembers() map[string]struct{} {
+func (c *Info) GetMembers() map[string]struct{} {
 	var res []struct {
 		ID       string `json:"id"`
 		FullName string `json:"fullName"`

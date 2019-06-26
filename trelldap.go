@@ -4,9 +4,9 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"log"
+	"time"
 
 	"github.com/arapov/trelldap/env"
-	"github.com/arapov/trelldap/trellox"
 )
 
 const (
@@ -14,100 +14,72 @@ const (
 	datafile   = "members.json"
 )
 
-// Meta contains the data required to do the synchronization between
-// LDAP and Trello Organization
+// Meta contains the data required for LDAP and Trello synchronization
 type Meta struct {
-	Fullname string                     `json:"fullname"`
-	Mails    []string                   `json:"mails"`
-	Trello   map[string]*trellox.Member `json:"trello"`
+	Fullname  string   `json:"fullname"`
+	Mails     []string `json:"mails"`
+	TrelloID  []string `json:"trelloid"`
+	Timestamp int64    `json:"timestamp"`
 
 	seenInLDAP   bool
 	seenInTrello bool
 }
 
-// TODO: name it, rework it, map of Meta data
-type Members struct {
-	Meta map[string]*Meta `json:"members"`
-}
-
-func (m *Members) Read() error {
-	jsonBytes, err := ioutil.ReadFile(datafile)
-	json.Unmarshal(jsonBytes, &m)
-
-	return err
-}
-
-func (m *Members) Write() error {
-	jsonBytes, _ := json.MarshalIndent(m, "", "  ")
-	err := ioutil.WriteFile(datafile, jsonBytes, 0640)
-
-	return err
-}
-
 func main() {
+	// members is the serialized cache that contains the state of the last run, where
+	// key is member ldap uid
+	var members map[string]*Meta
+
 	c, err := env.LoadConfig(configfile)
 	if err != nil {
 		log.Fatalln(err)
 	}
 
-	// members - TODO: document the importance
-	var members Members
-	if err := members.Read(); err != nil {
-		members.Meta = make(map[string]*Meta)
+	if err := read(&members); err != nil {
+		members = make(map[string]*Meta)
 		log.Println("no", datafile, "file was found.")
 	}
 
-	// trello && ldap connections to work with
-	trello := c.Trello.Dial()
 	ldap := c.LDAP.Dial()
-
-	// tMembers - represent Trello UIDs, which are the members of Trello Org.
-	tMembers := trello.GetBoardMembers()
-	// lMembers - represent LDAP members, which should be in Trello Org.
-	lMembers := ldap.GetMembers()
-
-	for _, lMember := range lMembers {
-		if _, ok := members.Meta[lMember.UID]; !ok {
+	ldapMembers := ldap.GetMembers()
+	for _, lMember := range ldapMembers {
+		if _, ok := members[lMember.UID]; !ok {
+			log.Println("New person has been found since last run:", lMember.UID)
 			// We've found new LDAP user we aren't aware of
-		reconnect:
-			// TODO: What if we don't want to look for aliases
 			if err := ldap.GetAliases(lMember); err != nil {
-				// Trello API has limits for calls, so that calls are throttled.
-				// LDAP connection could be lost, while we wait for Trello API
-				// to be available
-				ldap = c.LDAP.Dial()
-				goto reconnect
+				log.Println(err)
 			}
 
-			members.Meta[lMember.UID] = &Meta{
-				Fullname: lMember.Fullname,
-				Mails:    lMember.Mails,
-				Trello:   make(map[string]*trellox.Member),
+			members[lMember.UID] = &Meta{
+				Fullname:  lMember.Fullname,
+				Mails:     lMember.Mails,
+				TrelloID:  nil,
+				Timestamp: 0,
 			}
 		}
-
-		// member is the common container of LDAPxTrello Member
-		member := members.Meta[lMember.UID]
-
 		// Mark member who is in LDAP. Those who end up with false are
 		// material to be removed from Trello and cache file.
-		member.seenInLDAP = true
+		members[lMember.UID].seenInLDAP = true
+	}
+
+	trello := c.Trello.Dial()
+	for _, lMember := range ldapMembers {
+		// member is the common container of LDAPxTrello Member
+		member := members[lMember.UID]
 
 		for _, mail := range lMember.Mails {
-			if _, ok := member.Trello[mail]; !ok {
+			// TODO: figure out the delta from now() for retry
+			if member.Timestamp == 0 {
 				// Newbie has been found
-				member.Trello[mail] = trello.Search(mail)
-			}
-
-			if _, ok := tMembers[member.Trello[mail].ID]; !ok {
-				member.seenInTrello = false
+				tMember := trello.Search(mail)
+				member.TrelloID = append(member.TrelloID, tMember.ID)
+				member.Timestamp = time.Now().Unix()
 			}
 		}
 	}
 
 	// TODO: isUseful?
 	//	trello.GetOrgID()
-	trello.GetOrgMembers()
 
 	// TODO:
 	// 1. unsubscribe .seenInLDAP = false from Org
@@ -118,12 +90,26 @@ func main() {
 	// 2. subscribe .seenInTrello = false to Org
 	// -- PUT /organizations/{id}/members/{idMember}
 	// 2.a. concern trello username vs multiple mails
-	for _, member := range members.Meta {
+	for _, member := range members {
 		log.Println(member.Fullname, member.seenInLDAP, member.seenInTrello)
 	}
 
 	// Serialize members
-	if err := members.Write(); err != nil {
+	if err := write(&members); err != nil {
 		log.Fatalln(err)
 	}
+}
+
+func read(m *map[string]*Meta) error {
+	jsonBytes, err := ioutil.ReadFile(datafile)
+	json.Unmarshal(jsonBytes, m)
+
+	return err
+}
+
+func write(m *map[string]*Meta) error {
+	jsonBytes, _ := json.MarshalIndent(m, "", "  ")
+	err := ioutil.WriteFile(datafile, jsonBytes, 0640)
+
+	return err
 }
